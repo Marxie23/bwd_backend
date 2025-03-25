@@ -38,6 +38,14 @@ const Billing = sequelize.define(
             type: DataTypes.DATE,
             allowNull: false,
         },
+        CurrentBill: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+        },
+        FCACharge: {
+            type: DataTypes.FLOAT,
+            allowNull: false,
+        },
         AmountDue: {
             type: DataTypes.FLOAT,
             allowNull: false,
@@ -55,6 +63,14 @@ const Billing = sequelize.define(
             defaultValue: "Unpaid",
         },
         ReferenceNumber: {
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
+        PaymentDate: {
+            type: DataTypes.DATE,
+            allowNull: true,
+        },
+        PaymentType: {
             type: DataTypes.STRING,
             allowNull: true,
         },
@@ -88,7 +104,7 @@ Billing.belongsTo(MeterReading, { foreignKey: "MeterReadingID", as: "MeterReadin
 
 // Sync model with database
 sequelize
-    .sync({ force: false })
+    .sync({ false: false })
     .then(() => {
         console.log("Billing model synced with database");
     })

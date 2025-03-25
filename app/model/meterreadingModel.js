@@ -50,6 +50,10 @@ const MeterReading = sequelize.define(
             type: DataTypes.INTEGER,
             allowNull: true,
         },
+        ReaderName: {
+            type: DataTypes.STRING,
+            allowNull: true,
+        },
         MeterId: {
             type: DataTypes.INTEGER,
             references: {

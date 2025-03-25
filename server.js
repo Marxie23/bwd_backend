@@ -67,6 +67,7 @@ require("./app/routes/notificationRoutes")(app);
 require("./app/routes/paymentRoutes")(app);
 require("./app/routes/notificationsRoutes")(app);
 require("./app/routes/transactionRoutes")(app);
+require("./app/routes/postingRoutes")(app);
 
 // Real-time notifications with Socket.IO
 io.on('connection', (socket) => {

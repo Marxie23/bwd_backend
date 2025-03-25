@@ -13,7 +13,8 @@ module.exports = function (app) {
 
     app.get("/api/auth/billing", [verifyToken], billingController.getAllBillings);
     app.get("/api/auth/billing/:year/:month", [verifyToken], billingController.getBillingByMonthAndYear);
-    app.get("/api/auth/billing/:year/:month/:customerId", [verifyToken], billingController.getCustomerBillingByMonthAndYear);
+    app.get("/api/auth/billing/year/month/:customerId", [verifyToken], billingController.getCustomerBillingByMonthAndYear);
+    app.get("/api/auth/billing/search/value/customer/:searchValue", [verifyToken], billingController.getCustomerBillingByName);
     app.put("/api/auth/billing/:id", [verifyToken], billingController.updateBilling);
     app.post("/api/auth/billing/:id", [verifyToken], billingController.updateBillings);
     //app.get("/api/auth/billing/customer/:customerId", [verifyToken], billingController.getAllCustomerBillings);

@@ -94,7 +94,7 @@ exports.create = async (req, res) => {
         });
 
         const customerID = customer.CustomerID;
-        const username = `CUSTOMER${accountNum}`;
+        const username = `CUSTOMER${meterNumber}`;
         const password = generateRandomString()
         const lName = lastName;
         const fName = firstName;
@@ -108,7 +108,13 @@ exports.create = async (req, res) => {
             await sendEmail(
             email,
             'Account Credentails in Bongao Water Distict Billing Website',
-            `Dear Mr/Mrs.${fName} ${lastName},\n\nYour account credentials has been created.\nUse this to login in the website.\nAccount Number: ${accountNum}\n\Username: ${username}\nPassword: ${password}\n\nThank you.\nBongao Water District Website Billing`
+            `Dear Mr/Mrs.${fName} ${lastName},\nYour account credentials has been created.
+            \nUse this to login in the website.
+            \nAccount Number: ${accountNum}
+            \nUsername: ${username}
+            \nPassword: ${password}
+            \n\nThank you.
+            \nBongao Water District Website Billing`
         );
 
         }

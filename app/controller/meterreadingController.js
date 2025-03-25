@@ -45,14 +45,14 @@ const transporter = nodemailer.createTransport({
 // Create a new meter reading
 exports.create = async (req, res) => {
     try {
-        const { periodStart, periodEnd, readingDate, presentReading, previousReading, meterId, consumption} = req.body;
-        const { customerId, amountDue, amountAfterDue, dueDate} = req.body;
+        const { periodStart, periodEnd, readingDate, presentReading, previousReading,readerName, meterId, consumption} = req.body;
+        const { customerId, amountDue, amountAfterDue, dueDate,fcaCharge,currentBill} = req.body;
         const monthNames = [
             "January", "February", "March", "April", "May", "June", 
             "July", "August", "September", "October", "November", "December"
           ];
 
-        if (!meterId || !customerId || !periodStart || !periodEnd || !dueDate || !readingDate || !presentReading || !previousReading || !consumption || !amountDue || !amountAfterDue) {
+        if (!meterId || !customerId || !periodStart || !periodEnd || !dueDate || !readingDate || !presentReading || !previousReading || !consumption || !amountDue || !amountAfterDue || !readerName) {
             return res.status(400).json({
                 status: false,
                 message: "All fields must be filled!",
@@ -66,6 +66,7 @@ exports.create = async (req, res) => {
             PresentReading : presentReading,
             PreviousReading : previousReading,
             Consumption: consumption,
+            ReaderName: readerName,
             MeterId : meterId,
         });
         
@@ -73,6 +74,8 @@ exports.create = async (req, res) => {
         const newBilling = await Billing.create({
             BillingDate : readingDate,
             DueDate : dueDate,
+            CurrentBill: currentBill,
+            FCACharge: fcaCharge,
             AmountDue : amountDue,
             AmountAfterDue : amountAfterDue,
             CustomerID: customerId,

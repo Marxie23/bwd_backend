@@ -136,7 +136,7 @@ exports.updateBilling = async (req, res) => {
         // AmountDue,
         // AmountPaid: 0, // Default to zero
         // PaymentStatus: "Pending",
-        const { BillingDate, DueDate, AmountDue, AmountPaid, PaymentStatus } = req.body;
+        const {PaymentDate,PaymentType,AmountPaid, PaymentStatus } = req.body;
 
         const billing = await Billing.findByPk(id);
         if (!billing) {
@@ -144,6 +144,9 @@ exports.updateBilling = async (req, res) => {
         }
         // Update fields
         billing.PaymentStatus = PaymentStatus || billing.PaymentStatus;
+        billing.AmountPaid = AmountPaid || billing.AmountPaid;
+        billing.PaymentDate = PaymentDate || billing.PaymentDate;
+        billing.PaymentType = PaymentType || billing.PaymentType;
 
         await billing.save();
 
@@ -260,6 +263,7 @@ exports.getBillingByMonthAndYear = async (req, res) => {
                 reading_PresentReading: meterReading.PresentReading,
                 reading_PreviousReading: meterReading.PreviousReading,
                 reading_Consumption: meterReading.Consumption,
+                reading_ReaderName: meterReading.ReaderName,
                 billing_BillingID: billing.BillingID,
                 billing_BillingDate: new Date(billing.BillingDate).toLocaleDateString(),
                 billing_DueDate: new Date(billing.DueDate).toLocaleDateString(),
@@ -267,7 +271,12 @@ exports.getBillingByMonthAndYear = async (req, res) => {
                 billing_AmountAfterDue: billing.AmountAfterDue,
                 billing_AmountPaid: billing.AmountPaid,
                 billing_PaymentStatus: billing.PaymentStatus,
-                billing_ReferenceNumber: billing.ReferenceNumber
+                billing_ReferenceNumber: billing.ReferenceNumber,
+                billing_CurrentBill: billing.CurrentBill,
+                billing_FCACharge: billing.FCACharge,
+                billing_PaymentDate: billing.PaymentDate ? new Date(billing.PaymentDate).toLocaleDateString() : null,
+                billing_PaymentType: billing.PaymentType,
+
             };
         });
 
@@ -286,16 +295,10 @@ exports.getBillingByMonthAndYear = async (req, res) => {
     }
 }
 exports.getCustomerBillingByMonthAndYear = async (req, res) => {
-    const { year, month,customerId } = req.params;
-    console.log(customerId + "dddgdgdg")
+    const {customerId } = req.params;
     try{
         const billingInfo = await Billing.findAll({
             where:{
-                [Op.and]: [
-                    Sequelize.where(Sequelize.fn("YEAR", Sequelize.col("BillingDate")), year),
-                    Sequelize.where(Sequelize.fn("MONTH", Sequelize.col("BillingDate")), month),
-                ],
-                PaymentStatus:"Unpaid",
                 CustomerID: customerId
             },
             include: [
@@ -341,6 +344,7 @@ exports.getCustomerBillingByMonthAndYear = async (req, res) => {
                 reading_PresentReading: meterReading.PresentReading,
                 reading_PreviousReading: meterReading.PreviousReading,
                 reading_Consumption: meterReading.Consumption,
+                reading_ReaderName: meterReading.ReaderName,
                 billing_BillingID: billing.BillingID,
                 billing_BillingDate: new Date(billing.BillingDate).toLocaleDateString(),
                 billing_DueDate: new Date(billing.DueDate).toLocaleDateString(),
@@ -348,7 +352,11 @@ exports.getCustomerBillingByMonthAndYear = async (req, res) => {
                 billing_AmountAfterDue: billing.AmountAfterDue,
                 billing_AmountPaid: billing.AmountPaid,
                 billing_PaymentStatus: billing.PaymentStatus,
-                billing_ReferenceNumber: billing.ReferenceNumber
+                billing_ReferenceNumber: billing.ReferenceNumber,
+                billing_CurrentBill: billing.CurrentBill,
+                billing_FCACharge: billing.FCACharge,
+                billing_PaymentDate: billing.PaymentDate ? new Date(billing.PaymentDate).toLocaleDateString() : null,
+                billing_PaymentType: billing.PaymentType,
             };
         });
 
@@ -359,6 +367,176 @@ exports.getCustomerBillingByMonthAndYear = async (req, res) => {
         });
     }catch (error){
         console.error("Error fetching billing by month, year, and MeterId:", error.message);
+        return res.status(500).json({
+            status: false,
+            message: "An error occurred while fetching billing.",
+            billingInfo: []
+        });
+    }
+}
+exports.getBillingByMonthAndYear = async (req, res) => {
+    const { year, month } = req.params;
+    
+    try{
+        const billingInfo = await Billing.findAll({
+            where:{
+                [Op.and]: [
+                    Sequelize.where(Sequelize.fn("YEAR", Sequelize.col("BillingDate")), year),
+                    Sequelize.where(Sequelize.fn("MONTH", Sequelize.col("BillingDate")), month),
+                ],
+                // PaymentStatus:"Unpaid"
+            },
+            include: [
+                {
+                    model: Customer,
+                    as: "Customer"
+                },
+                {
+                    model: MeterReading,
+                    as: "MeterReading",
+                    include:[
+                        {
+                            model: Meter,
+                            as: "Meter"
+                        }
+                    ]
+                }
+            ],
+            order: [[{ model: Customer, as: 'Customer' }, 'Lastname', 'ASC']]
+        });
+        if(billingInfo.length === 0){
+            return res.status(404).json({
+                status: false,
+                message: "No billing Info found for the specified month, year.",
+                billingInfo: []
+            });
+        }
+
+        const formattedBillingInfo = billingInfo.map(billing => {
+            const customer = billing.Customer;
+            const meterReading = billing.MeterReading;
+            const meter = billing.MeterReading.Meter
+
+            return {
+                customer_CustomerID: customer.CustomerID,
+                customer_Name: `${customer.Firstname} ${customer.Lastname}`,
+                customer_AccountNumber: customer.AccountNum,
+                meter_MeterNumber : meter.MeterNumber,
+                reading_MeterReadingID: meterReading.MeterReadingID,
+                reading_PeriodStart: new Date(meterReading.PeriodStart).toLocaleDateString(),
+                reading_PeriodEnd: new Date(meterReading.PeriodEnd).toLocaleDateString(),
+                reading_ReadingDate: new Date(meterReading.ReadingDate).toLocaleDateString(),
+                reading_PresentReading: meterReading.PresentReading,
+                reading_PreviousReading: meterReading.PreviousReading,
+                reading_Consumption: meterReading.Consumption,
+                reading_ReaderName: meterReading.ReaderName,
+                billing_BillingID: billing.BillingID,
+                billing_BillingDate: new Date(billing.BillingDate).toLocaleDateString(),
+                billing_DueDate: new Date(billing.DueDate).toLocaleDateString(),
+                billing_AmountDue: billing.AmountDue,
+                billing_AmountAfterDue: billing.AmountAfterDue,
+                billing_AmountPaid: billing.AmountPaid,
+                billing_PaymentStatus: billing.PaymentStatus,
+                billing_ReferenceNumber: billing.ReferenceNumber,
+                billing_CurrentBill: billing.CurrentBill,
+                billing_FCACharge: billing.FCACharge,
+                billing_PaymentDate: billing.PaymentDate ? new Date(billing.PaymentDate).toLocaleDateString() : null,
+                billing_PaymentType: billing.PaymentType,
+
+            };
+        });
+
+        return res.status(200).json({
+            status: true,
+            message: "Meter readings found for the specified month, year.",
+            billingInfo: formattedBillingInfo
+        });
+    }catch (error){
+        console.error("Error fetching billing by month, year, and MeterId:", error.message);
+        return res.status(500).json({
+            status: false,
+            message: "An error occurred while fetching billing.",
+            billingInfo: []
+        });
+    }
+}
+
+exports.getCustomerBillingByName = async (req, res) => {
+    const {searchValue} = req.params;
+    try{
+        const billingInfo = await Billing.findAll({
+            include: [
+                {
+                    model: Customer,
+                    as: "Customer",
+                    where:{
+                        [Op.or]:[
+                            { Firstname: { [Op.like]: `%${searchValue}%` } }, // Search by Firstname
+                            { Lastname: { [Op.like]: `%${searchValue}%` } }, // Search by Lastname
+                        ]
+                    }
+                },
+                {
+                    model: MeterReading,
+                    as: "MeterReading",
+                    include:[
+                        {
+                            model: Meter,
+                            as: "Meter"
+                        }
+                    ]
+                }
+            ],
+            order: [[{ model: Customer, as: 'Customer' }, 'Lastname', 'ASC']]
+        });
+        if(billingInfo.length === 0){
+            return res.status(404).json({
+                status: false,
+                message: "No billing Info found for name search.",
+                billingInfo: []
+            });
+        }
+
+        const formattedBillingInfo = billingInfo.map(billing => {
+            const customer = billing.Customer;
+            const meterReading = billing.MeterReading;
+            const meter = billing.MeterReading.Meter
+
+            return {
+                customer_CustomerID: customer.CustomerID,
+                customer_Name: `${customer.Firstname} ${customer.Lastname}`,
+                customer_AccountNumber: customer.AccountNum,
+                meter_MeterNumber : meter.MeterNumber,
+                reading_MeterReadingID: meterReading.MeterReadingID,
+                reading_PeriodStart: new Date(meterReading.PeriodStart).toLocaleDateString(),
+                reading_PeriodEnd: new Date(meterReading.PeriodEnd).toLocaleDateString(),
+                reading_ReadingDate: new Date(meterReading.ReadingDate).toLocaleDateString(),
+                reading_PresentReading: meterReading.PresentReading,
+                reading_PreviousReading: meterReading.PreviousReading,
+                reading_Consumption: meterReading.Consumption,
+                reading_ReaderName: meterReading.ReaderName,
+                billing_BillingID: billing.BillingID,
+                billing_BillingDate: new Date(billing.BillingDate).toLocaleDateString(),
+                billing_DueDate: new Date(billing.DueDate).toLocaleDateString(),
+                billing_AmountDue: billing.AmountDue,
+                billing_AmountAfterDue: billing.AmountAfterDue,
+                billing_AmountPaid: billing.AmountPaid,
+                billing_PaymentStatus: billing.PaymentStatus,
+                billing_ReferenceNumber: billing.ReferenceNumber,
+                billing_CurrentBill: billing.CurrentBill,
+                billing_FCACharge: billing.FCACharge,
+                billing_PaymentDate: billing.PaymentDate ? new Date(billing.PaymentDate).toLocaleDateString() : null,
+                billing_PaymentType: billing.PaymentType,
+            };
+        });
+
+        return res.status(200).json({
+            status: true,
+            message: "Meter readings found for the specified name.",
+            billingInfo: formattedBillingInfo
+        });
+    }catch (error){
+        console.error("Error fetching billing by name, and MeterId:", error.message);
         return res.status(500).json({
             status: false,
             message: "An error occurred while fetching billing.",
@@ -426,7 +604,8 @@ exports.getAllCustomerBillings = async (req, res) => {
                 billing_AmountAfterDue: billing.AmountAfterDue,
                 billing_AmountPaid: billing.AmountPaid,
                 billing_PaymentStatus: billing.PaymentStatus,
-                billing_ReferenceNumber: billing.ReferenceNumber
+                billing_ReferenceNumber: billing.ReferenceNumber,
+                billing_PaymentType: billing.PaymentType,
             };
         });
 
@@ -495,6 +674,7 @@ exports.getAllPaidBillings = async (req, res) => {
                 reading_PresentReading: meterReading.PresentReading,
                 reading_PreviousReading: meterReading.PreviousReading,
                 reading_Consumption: meterReading.Consumption,
+                reading_ReaderName: meterReading.ReaderName,
                 billing_BillingID: billing.BillingID,
                 billing_BillingDate: new Date(billing.BillingDate).toLocaleDateString(),
                 billing_DueDate: new Date(billing.DueDate).toLocaleDateString(),
@@ -502,7 +682,11 @@ exports.getAllPaidBillings = async (req, res) => {
                 billing_AmountAfterDue: billing.AmountAfterDue,
                 billing_AmountPaid: billing.AmountPaid,
                 billing_PaymentStatus: billing.PaymentStatus,
-                billing_ReferenceNumber: billing.ReferenceNumber
+                billing_ReferenceNumber: billing.ReferenceNumber,
+                billing_CurrentBill: billing.CurrentBill,
+                billing_FCACharge: billing.FCACharge,
+                billing_PaymentDate: billing.PaymentDate ? new Date(billing.PaymentDate).toLocaleDateString() : null,
+                billing_PaymentType: billing.PaymentType,
             };
         });
 
@@ -525,8 +709,9 @@ exports.updateBillings = async (req, res) => {
 
     try {
         const transaction = await Billing.sequelize.transaction();
+        const transactionMeterReading = await MeterReading.sequelize.transaction();
         const { id } = req.params;
-        const { BillingDate, DueDate, AmountDue, AmountPaid, PaymentStatus, PresentReading, PreviousReading, Consumption, amountAfterDues } = req.body;
+        const { BillingDate, DueDate, AmountDue, AmountPaid, PaymentStatus, PresentReading, PreviousReading, Consumption, amountAfterDues,fcaCharges,readerNames,currentBills} = req.body;
 
         // Find Billing Record
         const billing = await Billing.findByPk(id, { transaction });
@@ -542,13 +727,18 @@ exports.updateBillings = async (req, res) => {
             return res.status(404).json({ message: "Meter reading record not found for this billing", status:false});
         }
 
+        meterReading.ReaderName = readerNames || meterReading.ReaderName;
+
+        await meterReading.save({transactionMeterReading});
         // ✅ Update Billing Fields
         billing.BillingDate = BillingDate || billing.BillingDate;
         billing.DueDate = DueDate || billing.DueDate;
         billing.AmountDue = AmountDue || billing.AmountDue;
         billing.AmountPaid = AmountPaid || billing.AmountPaid;
         billing.PaymentStatus = PaymentStatus || billing.PaymentStatus;
-        billing.AmountAfterDue = amountAfterDues || billing.AmountAfterDue
+        billing.AmountAfterDue = amountAfterDues || billing.AmountAfterDue;
+        billing.FCACharge = fcaCharges || billing.FCACharge;
+        billing.CurrentBill = fcaCharges || billing.CurrentBill;
 
         await billing.save({ transaction });
 
